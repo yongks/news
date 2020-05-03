@@ -128,4 +128,4 @@ df['Detail_WN_Sentiment']   = (df.Detail_WN_PosWordCount / (df.Detail_WN_PosWord
 print("--- NLP Features Generation Took: %s minutes ---" % ((time.time() - start_time)/60))
 
 ## Save To Local File
-df.to_csv('data/news_sentiment.csv')
+df.to_csv('data/phase1_news_sentiment.csv')

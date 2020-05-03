@@ -20,7 +20,7 @@ from xxhash import xxh64 as hasher   ## no cryptographic hashing function, fast
 
 ## Reading Directory Path From Config
 config = cp.ConfigParser()
-config.read('settings.cfg')
+config.read('../settings.cfg')
 db_path   = config['data']['db_path']
 news_path = config['data']['news_path']
 

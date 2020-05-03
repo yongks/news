@@ -22,7 +22,7 @@ warnings.filterwarnings("ignore")
 
 ## Reading Directory Path From Config
 config = cp.ConfigParser()
-config.read('settings.cfg')
+config.read('../settings.cfg')
 
 ## Reading File Path From Config
 instruments_file    = config['data']['instruments_file']

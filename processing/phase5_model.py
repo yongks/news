@@ -17,10 +17,11 @@ import time
 ## Evaluation
 from sklearn.metrics import confusion_matrix
 
+# Change Directory to Project Root
+import os
+os.chdir('../')
 
 ## Display Environment
-from IPython.core.display import display, HTML
-display(HTML("<style>.container { width:75% !important; margin-left:350px; }</style>"))
 pd.set_option( 'display.notebook_repr_html', True)  # render Series and DataFrame as text, not HTML
 pd.set_option( 'display.max_column', 25)    # number of columns
 pd.set_option( 'display.max_rows', 100)      # number of rows
@@ -39,13 +40,13 @@ telco_symbols_index = telco_symbols  + ['TELCO_INDEX']
 all_symbols   = fsi_symbols + telco_symbols + ['FSI_INDEX','TELCO_INDEX']
 
 ## Read EOD Returns From Local CSV File
-returns_df    = pd.read_csv('data/eod_returns.csv', header=[0,1], index_col=0).filter(regex='RD00|RD01|RD02|RD03|RD04|RD05')
+returns_df    = pd.read_csv('data/phase4_returns.csv', header=[0,1], index_col=0).filter(regex='RD00|RD01|RD02|RD03|RD04|RD05')
 fsi_returns   = returns_df.loc[:, fsi_symbols_index]
 telco_returns = returns_df.loc[:, telco_symbols_index]
 #.filter(regex='RD00|RD01|RD02|RD03|RD04|RD05|OPEN|CLOSE')  .reindex(['OPEN','CLOSE', 'RD00','RD01','RD02','RD03','RD04','RD05'], level=1, axis=1)
 
 ## Read Sentiment Scores From Local File
-sentiment_df    = pd.read_csv('data/sentiment_scores.csv', index_col=0)
+sentiment_df    = pd.read_csv('data/phase3_sentiment_scores.csv', index_col=0)
 fsi_sentiment   = sentiment_df.loc[:, fsi_symbols_index]
 telco_sentiment = sentiment_df.loc[:, telco_symbols_index]
 
@@ -63,7 +64,7 @@ returns_dir       = returns_df.loc[:,    (slice(None), ('RD00','RD01','RD02','RD
 fsi_returns_dir   = returns_dir[fsi_symbols_index]
 telco_returns_dir = returns_dir[telco_symbols_index]
 
-#%% Prediction Model
+#%% Prediction Modeling Through Grid Search
 
 ## senti_score is within range of 0 to 1
 def SentiDirection(senti_score, th, center):
@@ -134,12 +135,10 @@ for c in centers.tolist():
                 
 print("--- Grid Search Parameters Took: %s minutes ---" % ((time.time() - start_time)/60))
 
-final_result = pd.DataFrame(result).dropna()
-#final_result.to_csv('data/final_result.csv')
+complete_result = pd.DataFrame(result).dropna()
+complete_result .to_csv('results/complete_result.csv')
 
-
-
-#%% Construct Baseline
+#%% Construct Baseline For Individual Stock
 
 ## Get Frequency Count and Probability Of Labels
 freq = returns_dir.unstack().droplevel(2).groupby(['RIC','COLUMN']).value_counts().swaplevel().unstack()
@@ -151,21 +150,21 @@ accuracy_baseline = freq.div(freq_total, axis=0).groupby('RIC').max().mean(axis=
 
 #%% Get Best Results For Groups
 
-final_group_result = final_result.groupby(['PARAM','SECTOR'], as_index=False).mean()
+group_result = complete_result.groupby(['PARAM','SECTOR'], as_index=False).mean()
 
 metrics = ['ACCURACY','DOWN_F1','STAY_F1','UP_F1']
 focus = ['FS','TELCO','FS_INDEX','TELCO_INDEX']
 
 best_results = []
 for f in focus:
-    focus_df = final_group_result.query('SECTOR=="%s"'%f)
+    focus_df = group_result.query('SECTOR=="%s"'%f)
     for m in metrics:
         idmax = focus_df[m].idxmax()
         result_dict = { 
             'SECTOR': f,
             'METRIC': m, 
-            'PARAM':  final_group_result.iloc[idmax].PARAM,
-            'VALUE':  final_group_result.iloc[idmax][m]
+            'PARAM':  group_result.iloc[idmax].PARAM,
+            'VALUE':  group_result.iloc[idmax][m]
         }
         best_results = best_results + [result_dict]
 
@@ -173,27 +172,26 @@ best_group_result = pd.DataFrame(best_results)\
                     .set_index(['SECTOR','METRIC'])\
                     .unstack()
                     
+best_group_result.to_csv('results/best_group_result.csv')
 print (best_group_result)
-#best_group_result.to_csv('results/best_group_result.csv')
-
 
 #%% Get Best Results For Individual Stock
 
-final_stock_result = final_result.groupby(['PARAM','SYMBOL'], as_index=False).mean()
+stock_result = complete_result.groupby(['PARAM','SYMBOL'], as_index=False).mean()
 
 metrics = ['ACCURACY','DOWN_F1','STAY_F1','UP_F1']
 focus = ['FS','TELCO','FS_INDEX','TELCO_INDEX']
 
 best_results = []
 for sym in all_symbols:
-    focus_df = final_stock_result.query('SYMBOL=="%s"'%sym)
+    focus_df = stock_result.query('SYMBOL=="%s"'%sym)
     for m in metrics:
         idmax = focus_df[m].idxmax()
         result_dict = { 
             'SYMBOL': sym,
             'METRIC': m, 
-            'PARAM':  final_stock_result.iloc[idmax].PARAM,
-            'VALUE':  final_stock_result.iloc[idmax][m]
+            'PARAM':  stock_result.iloc[idmax].PARAM,
+            'VALUE':  stock_result.iloc[idmax][m]
         }
         best_results = best_results + [result_dict]
 
@@ -208,26 +206,7 @@ best_stock_result = pd.DataFrame(best_results)\
 best_stock_result.MODEL_PERFORMANCE = best_stock_result.MODEL_PERFORMANCE.round(4)*100
 
 ## Consolidate report with Baseline
-stock_final_report = best_stock_result.join(accuracy_baseline).join(f1_baseline)
-
-print( stock_final_report)
-#stock_final_report.to_csv('results/stock_final_report.csv')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+best_stock_result_with_baseline = best_stock_result.join(accuracy_baseline).join(f1_baseline)
+best_stock_result_with_baseline.to_csv('results/best_stock_result_with_baseline.csv')
+print( best_stock_result_with_baseline)
 
